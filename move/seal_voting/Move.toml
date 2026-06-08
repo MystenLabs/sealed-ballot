@@ -1,0 +1,6 @@
+[package]
+name = "seal_voting"
+edition = "2024"
+
+[dependencies]
+seal = { git = "https://github.com/MystenLabs/seal.git", subdir = "move/seal", rev = "78a4eb0e4435e613b32ec919e614023a3c7f2c49" }
