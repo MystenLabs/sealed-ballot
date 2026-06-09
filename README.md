@@ -19,7 +19,10 @@ from the Seal repository, adapted into a deployable demo with a small React UI.
 
 ## Deployment
 
-- **Move package (Testnet):** `0x08fede920add951edfae4d27b8859a233bf5d640aee0f19ae279d8ce5ee62edc`
+- **Move package (Testnet):** `0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952`
+- **Seal package (Testnet):** `0xdcb3015886d0d12430d82d7c3274b4fafdb2c7fa2bcdbfac468c15a11a1d1f5a` —
+  an optimized build of Seal with a faster `decrypt` (see the `seal` dependency in
+  `move/seal_voting/Move.toml`).
 - **Key servers:** the two Mysten Labs "Open" mode independent Testnet key servers, with a
   threshold of 2-of-2 (see `app/src/constants.ts`).
 

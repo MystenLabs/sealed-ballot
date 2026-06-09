@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The seal_voting Move package, published on Sui Testnet.
-export const PACKAGE_ID = '0x08fede920add951edfae4d27b8859a233bf5d640aee0f19ae279d8ce5ee62edc';
+export const PACKAGE_ID = '0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952';
 
 // The Seal key servers used for encryption and on-chain decryption.
 // These are the Mysten Labs "Open" mode independent testnet key servers

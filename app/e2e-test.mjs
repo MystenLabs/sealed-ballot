@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const KEYFILE = '/tmp/seal_voting_ephem.key';
 
-const PACKAGE_ID = '0x08fede920add951edfae4d27b8859a233bf5d640aee0f19ae279d8ce5ee62edc';
+const PACKAGE_ID = '0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952';
 const KEY_SERVER_IDS = [
   '0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75',
   '0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8',
