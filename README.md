@@ -6,10 +6,15 @@ A demo app for **private, threshold-encrypted voting** on Sui, powered by
 - Anyone can create a vote with a **title**, a set of **named options**, and a **whitelist** of
   eligible voter addresses.
 - Each whitelisted voter submits a single **encrypted** vote (the option they chose). Votes are
-  threshold-encrypted with Seal and stored on-chain — nobody can see how anyone voted.
+  threshold-encrypted with Seal and stored on-chain, so nobody can see how anyone voted **while the
+  vote is open**.
 - Once **every** whitelisted voter has voted, anyone can **finalize** the vote: the Seal key servers
-  release the derived keys, and the votes are **decrypted and tallied on-chain**. Individual votes
-  are never revealed; only the aggregate result is.
+  release the derived keys, which are submitted on-chain, and the votes are **decrypted and tallied
+  on-chain**.
+
+> **Privacy model:** this is a *sealed ballot* — votes are secret only until the reveal. Finalizing
+> publishes the decryption keys on-chain, so at that point the individual votes are decrypted and
+> revealed too, not just the aggregate tally.
 
 This is built on the [`voting` on-chain-decryption pattern](https://github.com/MystenLabs/seal/blob/main/move/patterns/sources/voting.move)
 from the Seal repository, adapted into a deployable demo with a small React UI.

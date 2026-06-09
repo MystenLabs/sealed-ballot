@@ -1,7 +1,7 @@
 // Copyright (c), Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/// Private voting with Seal (on-chain decryption).
+/// Sealed-ballot voting with Seal (on-chain decryption).
 ///
 /// - Anyone can create a vote with a title, a set of named options, and a whitelist of eligible voters.
 /// - Each whitelisted voter submits a single encrypted vote (the index of the option they choose),
@@ -10,6 +10,10 @@
 /// - Once every whitelisted voter has voted, anyone can finalize the vote: the Seal derived keys are
 ///   fetched from the key servers and submitted, and the votes are decrypted and tallied on-chain.
 /// - Invalid votes (wrong option, malformed ciphertext, ...) are ignored in the tally.
+///
+/// This is a sealed ballot, not a privately-tallied one: votes are secret only while the vote is
+/// open. Finalizing submits the decryption keys on-chain, so the individual votes (not just the
+/// aggregate tally) are revealed once the vote is finalized.
 ///
 /// This is an example of Seal on-chain decryption. It is adapted from the `voting` pattern in the Seal
 /// repository (move/patterns/sources/voting.move) with a few changes for use as a deployed demo app:

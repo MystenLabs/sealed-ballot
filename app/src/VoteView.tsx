@@ -295,8 +295,8 @@ export function VoteView() {
               Cast your vote
             </Heading>
             <Text size="2" color="gray" as="div" mb="3">
-              Your choice is encrypted before it is sent on-chain. It stays secret until everyone has
-              voted and the result is decrypted.
+              Your choice is encrypted before it is sent on-chain. It stays secret while the vote is
+              open; finalizing then decrypts and reveals every vote on-chain.
             </Text>
             <Flex direction="column" gap="2">
               {vote.options.map((opt, i) => (

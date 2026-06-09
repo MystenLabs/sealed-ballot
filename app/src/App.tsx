@@ -36,8 +36,10 @@ function App() {
             Seal
           </RLink>
           . Anyone can create a vote with a whitelist of voters and a set of options. Voters submit
-          encrypted votes; once everyone has voted, the result is decrypted and tallied on-chain — no
-          individual vote is ever revealed. Set your wallet to <b>Testnet</b> and fund it from the{' '}
+          encrypted votes that stay secret while the vote is open; once everyone has voted, anyone
+          can finalize to decrypt and tally on-chain. It's a sealed ballot — finalizing reveals the
+          individual votes, not just the totals. Set your wallet to <b>Testnet</b> and fund it from
+          the{' '}
           <RLink href="https://faucet.sui.io/" target="_blank">
             faucet
           </RLink>
