@@ -75,6 +75,9 @@ export function VoteView() {
   const iHaveVoted = isVoter && vote.voted[myIndex];
   const castCount = vote.voted.filter(Boolean).length;
   const allVoted = castCount === vote.voters.length;
+  const deadlinePassed = Date.now() >= vote.endTimeMs;
+  // A vote can be finalized once everyone has voted, or once the deadline has passed.
+  const canFinalize = !vote.isFinalized && (allVoted || deadlinePassed);
 
   // Cast an encrypted vote for the given option index.
   async function castVote(optionIndex: number) {
@@ -148,7 +151,11 @@ export function VoteView() {
               const approveTx = new Transaction();
               approveTx.moveCall({
                 target: `${packageId}::${MODULE}::seal_approve`,
-                arguments: [approveTx.pure.vector('u8', fromHex(innerId)), approveTx.object(vote!.id)],
+                arguments: [
+                  approveTx.pure.vector('u8', fromHex(innerId)),
+                  approveTx.object(vote!.id),
+                  approveTx.object.clock(),
+                ],
               });
               const txBytes = await approveTx.build({ client: suiClient, onlyTransactionKind: true });
 
@@ -239,7 +246,7 @@ export function VoteView() {
           </Box>
           {vote.isFinalized ? (
             <Badge color="green">Finalized</Badge>
-          ) : allVoted ? (
+          ) : canFinalize ? (
             <Badge color="amber">Ready to finalize</Badge>
           ) : (
             <Badge color="blue">Open</Badge>
@@ -326,11 +333,20 @@ export function VoteView() {
             </Text>
             {!vote.isFinalized && (
               <Box mt="3">
-                <Text size="2" as="div" mb="2">
+                <Text size="2" as="div" mb="1">
                   {castCount} of {vote.voters.length} voters have voted.
                 </Text>
-                <Button size="3" disabled={!allVoted || !!busy} onClick={finalize}>
-                  {allVoted ? 'Finalize & reveal result' : 'Waiting for all votes…'}
+                <Text size="2" color="gray" as="div" mb="2">
+                  {deadlinePassed
+                    ? 'Voting deadline has passed.'
+                    : `Voting ends ${new Date(vote.endTimeMs).toLocaleString()}.`}
+                </Text>
+                <Button size="3" disabled={!canFinalize || !!busy} onClick={finalize}>
+                  {canFinalize
+                    ? allVoted
+                      ? 'Finalize & reveal result'
+                      : 'Finalize now (deadline passed)'
+                    : 'Waiting for all votes or deadline…'}
                 </Button>
               </Box>
             )}

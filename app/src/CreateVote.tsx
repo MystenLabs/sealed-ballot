@@ -9,7 +9,7 @@ import { isValidSuiAddress } from '@mysten/sui/utils';
 import { Button, Card, Flex, Heading, IconButton, Text, TextArea, TextField } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { useNetworkVariable } from './networkConfig';
-import { KEY_SERVER_IDS, MODULE, THRESHOLD } from './constants';
+import { DEFAULT_VOTING_MINUTES, KEY_SERVER_IDS, MODULE, THRESHOLD } from './constants';
 import { getKeyServerPublicKeys, makeSealClient } from './seal';
 
 export function CreateVote() {
@@ -21,6 +21,7 @@ export function CreateVote() {
   const [title, setTitle] = useState('');
   const [voters, setVoters] = useState(account?.address ?? '');
   const [options, setOptions] = useState(['', '']);
+  const [durationMinutes, setDurationMinutes] = useState(String(DEFAULT_VOTING_MINUTES));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +56,9 @@ export function CreateVote() {
     if (new Set(voterList).size !== voterList.length)
       return setError('Duplicate voter addresses are not allowed.');
     if (optionList.length < 2) return setError('Add at least two options.');
+    const minutes = Number(durationMinutes);
+    if (!Number.isInteger(minutes) || minutes <= 0)
+      return setError('Voting duration must be a positive whole number of minutes.');
 
     setBusy(true);
     try {
@@ -77,6 +81,8 @@ export function CreateVote() {
               .toBytes(),
           ),
           tx.pure.u8(THRESHOLD),
+          tx.pure.u64(BigInt(minutes)),
+          tx.object.clock(),
         ],
       });
       tx.setGasBudget(100000000);
@@ -167,6 +173,23 @@ export function CreateVote() {
             </Button>
           </Flex>
         </div>
+
+        <label>
+          <Text as="div" size="2" mb="1" weight="bold">
+            Voting duration (minutes)
+          </Text>
+          <Text as="div" size="1" color="gray" mb="1">
+            The vote can be finalized once everyone has voted, or once this many minutes have passed
+            — whichever comes first.
+          </Text>
+          <TextField.Root
+            type="number"
+            min="1"
+            style={{ maxWidth: 160 }}
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(e.target.value)}
+          />
+        </label>
 
         {error && (
           <Text color="red" size="2">

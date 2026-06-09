@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The seal_voting Move package, published on Sui Testnet.
-export const PACKAGE_ID = '0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952';
+export const PACKAGE_ID = '0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8';
+
+// Default voting window (minutes). A vote can be finalized once everyone has voted, or once this
+// many minutes have passed since creation — whichever comes first.
+export const DEFAULT_VOTING_MINUTES = 60;
 
 // The Seal key servers used for encryption and on-chain decryption.
 // These are the Mysten Labs "Open" mode independent testnet key servers

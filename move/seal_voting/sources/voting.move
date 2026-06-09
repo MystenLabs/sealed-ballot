@@ -7,8 +7,10 @@
 /// - Each whitelisted voter submits a single encrypted vote (the index of the option they choose),
 ///   threshold-encrypted with Seal. The voter's address is used as the `aad` so an encrypted vote
 ///   cannot be copied and cast by someone else.
-/// - Once every whitelisted voter has voted, anyone can finalize the vote: the Seal derived keys are
-///   fetched from the key servers and submitted, and the votes are decrypted and tallied on-chain.
+/// - Once every whitelisted voter has voted, OR the voting deadline (set at creation) has passed,
+///   anyone can finalize the vote: the Seal derived keys are fetched from the key servers and
+///   submitted, and the votes are decrypted and tallied on-chain. Finalizing after the deadline
+///   tallies whatever votes were cast.
 /// - Invalid votes (wrong option, malformed ciphertext, ...) are ignored in the tally.
 ///
 /// This is a sealed ballot, not a privately-tallied one: votes are secret only while the vote is
@@ -39,7 +41,10 @@ use seal::bf_hmac_encryption::{
 };
 use std::string::String;
 use sui::bls12381::g1_from_bytes;
+use sui::clock::Clock;
 use sui::event;
+
+const MS_PER_MINUTE: u64 = 60_000;
 
 const EInvalidVote: u64 = 1;
 const EVoteNotDone: u64 = 2;
@@ -64,6 +69,9 @@ public struct Vote has key {
     options: vector<String>,
     /// This holds the encrypted votes assuming the same order as the `voters` vector.
     votes: vector<Option<EncryptedObject>>,
+    /// The vote can be finalized once every voter has voted, or once this time (ms since the Unix
+    /// epoch) has passed, whichever comes first.
+    end_time_ms: u64,
     /// Whether the vote has been finalized yet.
     is_finalized: bool,
     /// The tally, set when the vote is finalized. `result[i]` is the number of votes for option `i`.
@@ -122,6 +130,8 @@ public fun create_vote(
     key_servers: vector<address>,
     public_keys: vector<vector<u8>>,
     threshold: u8,
+    voting_minutes: u64,
+    clock: &Clock,
     ctx: &mut TxContext,
 ) {
     assert!(threshold <= key_servers.length() as u8);
@@ -136,6 +146,7 @@ public fun create_vote(
         key_servers,
         public_keys,
         threshold,
+        end_time_ms: clock.timestamp_ms() + voting_minutes * MS_PER_MINUTE,
         is_finalized: false,
         result: option::none(),
         votes: vector::tabulate!(voters.length(), |_| option::none()),
@@ -171,9 +182,13 @@ public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, ctx: &mut TxCo
     vote.votes[index].fill(encrypted_vote);
 }
 
-entry fun seal_approve(id: vector<u8>, vote: &Vote) {
+/// Authorizes the release of the decryption keys, which lets the vote be finalized. This is allowed
+/// once every voter has voted, or once the voting deadline has passed, whichever comes first.
+entry fun seal_approve(id: vector<u8>, vote: &Vote, clock: &Clock) {
     assert!(id == vote.id(), EInvalidVote);
-    assert!(vote.votes.all!(|vote| vote.is_some()), EVoteNotDone);
+    let all_voted = vote.votes.all!(|vote| vote.is_some());
+    let deadline_passed = clock.timestamp_ms() >= vote.end_time_ms;
+    assert!(all_voted || deadline_passed, EVoteNotDone);
 }
 
 /// Finalize a vote.

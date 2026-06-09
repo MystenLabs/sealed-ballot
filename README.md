@@ -3,14 +3,15 @@
 A demo app for **private, threshold-encrypted voting** on Sui, powered by
 [Seal](https://github.com/MystenLabs/seal).
 
-- Anyone can create a vote with a **title**, a set of **named options**, and a **whitelist** of
-  eligible voter addresses.
+- Anyone can create a vote with a **title**, a set of **named options**, a **whitelist** of
+  eligible voter addresses, and a **voting duration** (in minutes).
 - Each whitelisted voter submits a single **encrypted** vote (the option they chose). Votes are
   threshold-encrypted with Seal and stored on-chain, so nobody can see how anyone voted **while the
   vote is open**.
-- Once **every** whitelisted voter has voted, anyone can **finalize** the vote: the Seal key servers
-  release the derived keys, which are submitted on-chain, and the votes are **decrypted and tallied
-  on-chain**.
+- The vote can be **finalized** once **every** whitelisted voter has voted, **or** once the voting
+  **deadline** has passed — whichever comes first. Finalizing fetches the Seal derived keys and
+  submits them on-chain, and the votes are **decrypted and tallied on-chain** (votes cast so far;
+  voters who missed the deadline are simply not counted).
 
 > **Privacy model:** this is a *sealed ballot* — votes are secret only until the reveal. Finalizing
 > publishes the decryption keys on-chain, so at that point the individual votes are decrypted and
