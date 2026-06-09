@@ -3,13 +3,19 @@
 A demo app for **private, threshold-encrypted voting** on Sui, powered by
 [Seal](https://github.com/MystenLabs/seal).
 
-- Anyone can create a vote with a **title**, a set of **named options**, and a **whitelist** of
-  eligible voter addresses.
+- Anyone can create a vote with a **title**, a set of **named options**, a **whitelist** of
+  eligible voter addresses, and a **voting duration** (in minutes).
 - Each whitelisted voter submits a single **encrypted** vote (the option they chose). Votes are
-  threshold-encrypted with Seal and stored on-chain — nobody can see how anyone voted.
-- Once **every** whitelisted voter has voted, anyone can **finalize** the vote: the Seal key servers
-  release the derived keys, and the votes are **decrypted and tallied on-chain**. Individual votes
-  are never revealed; only the aggregate result is.
+  threshold-encrypted with Seal and stored on-chain, so nobody can see how anyone voted **while the
+  vote is open**.
+- The vote can be **finalized** once **every** whitelisted voter has voted, **or** once the voting
+  **deadline** has passed — whichever comes first. Finalizing fetches the Seal derived keys and
+  submits them on-chain, and the votes are **decrypted and tallied on-chain** (votes cast so far;
+  voters who missed the deadline are simply not counted).
+
+> **Privacy model:** this is a *sealed ballot* — votes are secret only until the reveal. Finalizing
+> publishes the decryption keys on-chain, so at that point the individual votes are decrypted and
+> revealed too, not just the aggregate tally.
 
 This is built on the [`voting` on-chain-decryption pattern](https://github.com/MystenLabs/seal/blob/main/move/patterns/sources/voting.move)
 from the Seal repository, adapted into a deployable demo with a small React UI.
@@ -19,7 +25,10 @@ from the Seal repository, adapted into a deployable demo with a small React UI.
 
 ## Deployment
 
-- **Move package (Testnet):** `0x08fede920add951edfae4d27b8859a233bf5d640aee0f19ae279d8ce5ee62edc`
+- **Move package (Testnet):** `0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952`
+- **Seal package (Testnet):** `0xdcb3015886d0d12430d82d7c3274b4fafdb2c7fa2bcdbfac468c15a11a1d1f5a` —
+  an optimized build of Seal with a faster `decrypt` (see the `seal` dependency in
+  `move/seal_voting/Move.toml`).
 - **Key servers:** the two Mysten Labs "Open" mode independent Testnet key servers, with a
   threshold of 2-of-2 (see `app/src/constants.ts`).
 

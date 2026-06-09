@@ -8,6 +8,8 @@ export interface Vote {
   options: string[];
   /** Parallel to `voters`: whether each voter has cast their (encrypted) vote. */
   voted: boolean[];
+  /** Voting deadline, ms since the Unix epoch. The vote can be finalized at/after this time. */
+  endTimeMs: number;
   isFinalized: boolean;
   /** The tally per option, available once the vote is finalized. */
   result: number[] | null;
@@ -43,6 +45,7 @@ export function parseVote(data: any): Vote | null {
     voters: fields.voters ?? [],
     options: fields.options ?? [],
     voted: votesRaw.map((v) => unwrapOption(v) !== null),
+    endTimeMs: Number(fields.end_time_ms ?? 0),
     isFinalized: Boolean(fields.is_finalized),
     result: resultInner ? (resultInner as any[]).map((n) => Number(n)) : null,
     keyServers: fields.key_servers ?? [],

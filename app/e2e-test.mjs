@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 const KEYFILE = '/tmp/seal_voting_ephem.key';
 
-const PACKAGE_ID = '0x08fede920add951edfae4d27b8859a233bf5d640aee0f19ae279d8ce5ee62edc';
+const PACKAGE_ID = '0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8';
 const KEY_SERVER_IDS = [
   '0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75',
   '0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8',
@@ -80,6 +80,8 @@ tx.moveCall({
     tx.pure.vector('address', KEY_SERVER_IDS),
     tx.pure(bcs.vector(bcs.vector(bcs.u8())).serialize(pks).toBytes()),
     tx.pure.u8(THRESHOLD),
+    tx.pure.u64(60n),
+    tx.object.clock(),
   ],
 });
 let res = await exec(tx);
@@ -118,7 +120,11 @@ const sessionKey = await SessionKey.create({
 const approveTx = new Transaction();
 approveTx.moveCall({
   target: `${PACKAGE_ID}::voting::seal_approve`,
-  arguments: [approveTx.pure.vector('u8', fromHex(innerId)), approveTx.object(voteId)],
+  arguments: [
+    approveTx.pure.vector('u8', fromHex(innerId)),
+    approveTx.object(voteId),
+    approveTx.object.clock(),
+  ],
 });
 const txBytes = await approveTx.build({ client, onlyTransactionKind: true });
 const derivedKeys = await seal.getDerivedKeys({ id: innerId, txBytes, sessionKey, threshold: THRESHOLD });

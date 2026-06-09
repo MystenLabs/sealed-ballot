@@ -47,6 +47,8 @@ export function VoteList() {
         <Flex direction="column" gap="2">
           {votes.map((v) => {
             const castCount = v.voted.filter(Boolean).length;
+            const canFinalize =
+              !v.isFinalized && (castCount === v.voters.length || Date.now() >= v.endTimeMs);
             return (
               <Link
                 key={v.id}
@@ -64,7 +66,7 @@ export function VoteList() {
                     </Flex>
                     {v.isFinalized ? (
                       <Badge color="green">Finalized</Badge>
-                    ) : castCount === v.voters.length ? (
+                    ) : canFinalize ? (
                       <Badge color="amber">Ready to finalize</Badge>
                     ) : (
                       <Badge color="blue">Open</Badge>
