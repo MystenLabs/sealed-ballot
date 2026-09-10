@@ -110,6 +110,10 @@ export function explorerObjectUrl(id: string): string {
   return `https://testnet.suivision.xyz/object/${id}`;
 }
 
+export function explorerTxUrl(digest: string): string {
+  return `https://testnet.suivision.xyz/txblock/${digest}`;
+}
+
 export function shorten(id: string, n = 6): string {
   if (!id) return '';
   return id.length > 2 * n + 2 ? `${id.slice(0, n + 2)}…${id.slice(-n)}` : id;

@@ -4,46 +4,9 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useCurrentClient } from '@mysten/dapp-kit-react';
 import { Badge, Card, Flex, Heading, Text } from '@radix-ui/themes';
-import { GRAPHQL_URL, MODULE, PACKAGE_ID } from './constants';
+import { PACKAGE_ID } from './constants';
+import { fetchRecentVoteIds } from './graphql';
 import { parseVote, shorten } from './utils';
-
-const RECENT_VOTES_QUERY = `
-  query RecentVotes($type: String!) {
-    events(last: 50, filter: { type: $type }) {
-      nodes {
-        contents {
-          json
-        }
-      }
-    }
-  }
-`;
-
-/**
- * Look up the ids of recently created votes from the `VoteCreated` events.
- *
- * The gRPC API has no event query, so this goes through GraphQL. Note that the public GraphQL
- * indexer only retains roughly the last month of events, so votes older than that stop appearing
- * in this list even though the objects themselves are still readable by id.
- */
-async function fetchRecentVoteIds(): Promise<string[]> {
-  const response = await fetch(GRAPHQL_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      query: RECENT_VOTES_QUERY,
-      variables: { type: `${PACKAGE_ID}::${MODULE}::VoteCreated` },
-    }),
-  });
-  const body = await response.json();
-  if (body.errors?.length) throw new Error(body.errors[0].message);
-  const nodes: any[] = body.data?.events?.nodes ?? [];
-  // Newest first.
-  return nodes
-    .map((node) => node.contents?.json?.vote_id)
-    .filter((id): id is string => Boolean(id))
-    .reverse();
-}
 
 export function VoteList() {
   const suiClient = useCurrentClient();
