@@ -1,4 +1,4 @@
-# Seal Voting
+# Sealed Ballot
 
 A demo app for **private, threshold-encrypted voting** on Sui, powered by
 [Seal](https://github.com/MystenLabs/seal).
