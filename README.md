@@ -3,6 +3,11 @@
 Private, threshold-encrypted voting on Sui, powered by
 [Seal](https://github.com/MystenLabs/seal).
 
+<p align="center">
+  <img src="docs/sealed-ballot.jpg" width="360"
+       alt="Cartoon seal in a sailor hat at a harbourside voting booth, dropping a marked ballot into the box." />
+</p>
+
 **▶ Try it: <https://seal-voting.vercel.app>**
 
 ## What it does
