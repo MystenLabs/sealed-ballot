@@ -9,17 +9,10 @@ import { bcs } from '@mysten/sui/bcs';
 import { SealClient, SessionKey, DemType } from '@mysten/seal';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { parseVote, unwrapTransaction } from './src/utils.ts';
+import { FULLNODE_URL, KEY_SERVER_IDS, PACKAGE_ID, THRESHOLD } from './src/constants.ts';
 
 const KEYFILE = '/tmp/seal_voting_ephem.key';
 
-const PACKAGE_ID = '0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8';
-const KEY_SERVER_IDS = [
-  '0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75',
-  '0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8',
-];
-const THRESHOLD = 2;
-
-const FULLNODE_URL = 'https://fullnode.testnet.sui.io:443';
 const client = new SuiGrpcClient({ network: 'testnet', baseUrl: FULLNODE_URL });
 const kp = existsSync(KEYFILE)
   ? Ed25519Keypair.fromSecretKey(readFileSync(KEYFILE, 'utf8').trim())
