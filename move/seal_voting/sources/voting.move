@@ -16,8 +16,6 @@ module seal_voting::voting;
 
 use seal::bf_hmac_encryption::{
     EncryptedObject,
-    VerifiedDerivedKey,
-    PublicKey,
     decrypt,
     new_public_key,
     verify_derived_keys,
@@ -36,6 +34,8 @@ const EAlreadyFinalized: u64 = 3;
 const ENotEnoughKeys: u64 = 4;
 const ENotAVoter: u64 = 5;
 const EInvalidOptions: u64 = 6;
+const EInvalidThreshold: u64 = 7;
+const EMismatchedKeyServers: u64 = 8;
 
 public struct Vote has key {
     id: UID,
@@ -70,25 +70,6 @@ public fun id(v: &Vote): vector<u8> {
     object::id(v).to_bytes()
 }
 
-/// The winning option of a tally. Returns the lowest index in case of a tie.
-public fun winner(result: &vector<u64>): u8 {
-    let (mut max_votes, mut option) = (0u64, 0u8);
-    result.length().do!(|i| {
-        let votes = result[i];
-        if (votes > max_votes) {
-            max_votes = votes;
-            option = i as u8;
-        };
-    });
-    option
-}
-
-#[test_only]
-public fun destroy_for_testing(v: Vote) {
-    let Vote { id, .. } = v;
-    object::delete(id);
-}
-
 /// Create a vote and share it so that the whitelisted voters can cast their votes.
 public fun create_vote(
     package_id: address,
@@ -102,8 +83,8 @@ public fun create_vote(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(threshold <= key_servers.length() as u8);
-    assert!(key_servers.length() == public_keys.length());
+    assert!(threshold <= key_servers.length() as u8, EInvalidThreshold);
+    assert!(key_servers.length() == public_keys.length(), EMismatchedKeyServers);
     assert!(options.length() >= 2, EInvalidOptions);
     let vote = Vote {
         id: object::new(ctx),
@@ -126,7 +107,7 @@ public fun create_vote(
 
 /// Cast a vote. `encrypted_vote` must encrypt a single u8, the option index, with the sender's
 /// address as aad so that it cannot be copied and cast by another voter.
-public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, ctx: &mut TxContext) {
+public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, ctx: &TxContext) {
     let encrypted_vote = parse_encrypted_object(encrypted_vote);
 
     assert!(encrypted_vote.aad().borrow() == ctx.sender().to_bytes(), EInvalidVote);
@@ -135,9 +116,9 @@ public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, ctx: &mut TxCo
     assert!(encrypted_vote.id() == vote.id(), EInvalidVote);
     assert!(encrypted_vote.package_id() == vote.package_id, EInvalidVote);
 
-    assert!(vote.voters.contains(&ctx.sender()), ENotAVoter);
-    let index = vote.voters.find_index!(|voter| voter == ctx.sender()).destroy_some();
-    vote.votes[index].fill(encrypted_vote);
+    let index = vote.voters.find_index!(|voter| voter == ctx.sender());
+    assert!(index.is_some(), ENotAVoter);
+    vote.votes[index.destroy_some()].fill(encrypted_vote);
 }
 
 /// Authorizes the key servers to release the decryption keys.
@@ -157,36 +138,36 @@ public fun finalize_vote(
     key_servers: vector<address>,
 ) {
     assert!(!vote.is_finalized, EAlreadyFinalized);
-    assert!(key_servers.length() == derived_keys.length());
+    assert!(key_servers.length() == derived_keys.length(), EMismatchedKeyServers);
     assert!(derived_keys.length() as u8 >= vote.threshold, ENotEnoughKeys);
 
-    let verified_derived_keys: vector<VerifiedDerivedKey> = verify_derived_keys(
+    let verified_derived_keys = verify_derived_keys(
         &derived_keys.map_ref!(|k| g1_from_bytes(k)),
         vote.package_id,
         vote.id(),
-        &key_servers
-            .map_ref!(|ks1| vote.key_servers.find_index!(|ks2| ks1 == ks2).destroy_some())
-            .map!(|i| new_public_key(vote.key_servers[i].to_id(), vote.public_keys[i])),
+        &key_servers.map_ref!(|ks| {
+            let i = vote.key_servers.find_index!(|ks2| ks2 == ks).destroy_some();
+            new_public_key((*ks).to_id(), vote.public_keys[i])
+        }),
     );
 
-    let all_public_keys: vector<PublicKey> = vote
+    let all_public_keys = vote
         .key_servers
         .zip_map!(vote.public_keys, |ks, pk| new_public_key(ks.to_id(), pk));
 
     let number_of_options = vote.options.length();
     let mut result = vector::tabulate!(number_of_options, |_| 0);
-    vote
-        .votes
-        .do_ref!(
-            |v| v
-                .and_ref!(|v| decrypt(v, &verified_derived_keys, &all_public_keys))
-                .do_ref!(|decrypted| {
-                    if (decrypted.length() == 1 && (decrypted[0] as u64) < number_of_options) {
-                        let option = decrypted[0] as u64;
-                        *&mut result[option] = result[option] + 1;
-                    };
-                }),
-        );
+    vote.votes.do_ref!(|encrypted_vote| {
+        let decrypted = encrypted_vote.and_ref!(|v| {
+            decrypt(v, &verified_derived_keys, &all_public_keys)
+        });
+        decrypted.do_ref!(|plaintext| {
+            if (plaintext.length() == 1 && (plaintext[0] as u64) < number_of_options) {
+                let option = plaintext[0] as u64;
+                *&mut result[option] = result[option] + 1;
+            };
+        });
+    });
 
     vote.is_finalized = true;
     vote.result = option::some(result);
