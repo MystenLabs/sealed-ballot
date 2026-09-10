@@ -1,6 +1,6 @@
 // Headless end-to-end test of the seal_voting on-chain decryption flow.
 // Uses a fresh ephemeral keypair funded from the testnet faucet (no wallet keys touched).
-import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { requestSuiFromFaucetV2, getFaucetHost } from '@mysten/sui/faucet';
@@ -8,6 +8,7 @@ import { fromHex, normalizeSuiAddress } from '@mysten/sui/utils';
 import { bcs } from '@mysten/sui/bcs';
 import { SealClient, SessionKey, DemType } from '@mysten/seal';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { parseVote, unwrapTransaction } from './src/utils.ts';
 
 const KEYFILE = '/tmp/seal_voting_ephem.key';
 
@@ -18,7 +19,8 @@ const KEY_SERVER_IDS = [
 ];
 const THRESHOLD = 2;
 
-const client = new SuiJsonRpcClient({ url: getJsonRpcFullnodeUrl('testnet'), network: 'testnet' });
+const FULLNODE_URL = 'https://fullnode.testnet.sui.io:443';
+const client = new SuiGrpcClient({ network: 'testnet', baseUrl: FULLNODE_URL });
 const kp = existsSync(KEYFILE)
   ? Ed25519Keypair.fromSecretKey(readFileSync(KEYFILE, 'utf8').trim())
   : new Ed25519Keypair();
@@ -28,25 +30,20 @@ console.log('ephemeral voter:', addr);
 
 const exec = async (tx) => {
   tx.setGasBudget(100000000);
-  const res = await client.signAndExecuteTransaction({
-    transaction: tx,
-    signer: kp,
-    options: { showEffects: true, showObjectChanges: true },
-  });
+  const res = unwrapTransaction(
+    await client.signAndExecuteTransaction({ transaction: tx, signer: kp, include: { effects: true } }),
+  );
   await client.waitForTransaction({ digest: res.digest });
-  if (res.effects.status.status !== 'success') {
-    throw new Error('tx failed: ' + JSON.stringify(res.effects.status));
-  }
   return res;
 };
 
-let bal = BigInt((await client.getBalance({ owner: addr })).totalBalance);
+let bal = BigInt((await client.getBalance({ owner: addr, coinType: '0x2::sui::SUI' })).balance.balance);
 if (bal === 0n) {
   console.log('requesting faucet (may be rate-limited)...');
   try {
     await requestSuiFromFaucetV2({ host: getFaucetHost('testnet'), recipient: addr });
     for (let i = 0; i < 30; i++) {
-      bal = BigInt((await client.getBalance({ owner: addr })).totalBalance);
+      bal = BigInt((await client.getBalance({ owner: addr, coinType: '0x2::sui::SUI' })).balance.balance);
       if (bal > 0n) break;
       await new Promise((r) => setTimeout(r, 2000));
     }
@@ -85,8 +82,9 @@ tx.moveCall({
   ],
 });
 let res = await exec(tx);
-const voteId = res.objectChanges.find(
-  (c) => c.type === 'created' && c.objectType.endsWith('::voting::Vote'),
+// The Vote is the only shared object the transaction creates.
+const voteId = res.effects.changedObjects.find(
+  (c) => c.idOperation === 'Created' && c.outputOwner?.$kind === 'Shared',
 ).objectId;
 console.log('vote created:', voteId);
 
@@ -154,11 +152,11 @@ tx.moveCall({
 await exec(tx);
 
 // 4. read & assert
-const obj = await client.getObject({ id: voteId, options: { showContent: true } });
-const f = obj.data.content.fields;
-const result = (f.result?.fields?.vec?.[0] ?? f.result?.vec?.[0] ?? f.result ?? []).map(Number);
-console.log('is_finalized:', f.is_finalized);
+const { object } = await client.getObject({ objectId: voteId, include: { content: true } });
+const finalVote = parseVote(object.content);
+const result = finalVote.result ?? [];
+console.log('is_finalized:', finalVote.isFinalized);
 console.log('result tally [Alpha, Beta]:', JSON.stringify(result));
-const ok = f.is_finalized === true && result.length === 2 && result[0] === 0 && result[1] === 1;
+const ok = finalVote.isFinalized === true && result.length === 2 && result[0] === 0 && result[1] === 1;
 console.log(ok ? '\n✅ E2E PASSED: Beta got 1 vote, Alpha 0.' : '\n❌ E2E FAILED');
 process.exit(ok ? 0 : 1);

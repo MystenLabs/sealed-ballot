@@ -1,38 +1,73 @@
 // Copyright (c), Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 import { Link } from 'react-router-dom';
-import { useSuiClientQuery } from '@mysten/dapp-kit';
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentClient } from '@mysten/dapp-kit-react';
 import { Badge, Card, Flex, Heading, Text } from '@radix-ui/themes';
-import { useNetworkVariable } from './networkConfig';
-import { MODULE } from './constants';
+import { GRAPHQL_URL, MODULE, PACKAGE_ID } from './constants';
 import { parseVote, shorten } from './utils';
 
+const RECENT_VOTES_QUERY = `
+  query RecentVotes($type: String!) {
+    events(last: 50, filter: { type: $type }) {
+      nodes {
+        contents {
+          json
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Look up the ids of recently created votes from the `VoteCreated` events.
+ *
+ * The gRPC API has no event query, so this goes through GraphQL. Note that the public GraphQL
+ * indexer only retains roughly the last month of events, so votes older than that stop appearing
+ * in this list even though the objects themselves are still readable by id.
+ */
+async function fetchRecentVoteIds(): Promise<string[]> {
+  const response = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      query: RECENT_VOTES_QUERY,
+      variables: { type: `${PACKAGE_ID}::${MODULE}::VoteCreated` },
+    }),
+  });
+  const body = await response.json();
+  if (body.errors?.length) throw new Error(body.errors[0].message);
+  const nodes: any[] = body.data?.events?.nodes ?? [];
+  // Newest first.
+  return nodes
+    .map((node) => node.contents?.json?.vote_id)
+    .filter((id): id is string => Boolean(id))
+    .reverse();
+}
+
 export function VoteList() {
-  const packageId = useNetworkVariable('packageId');
+  const suiClient = useCurrentClient();
 
-  const { data: events, isPending } = useSuiClientQuery(
-    'queryEvents',
-    {
-      query: { MoveEventType: `${packageId}::${MODULE}::VoteCreated` },
-      order: 'descending',
-      limit: 50,
+  const { data: voteIds, isPending } = useQuery({
+    queryKey: ['voteIds', PACKAGE_ID],
+    queryFn: fetchRecentVoteIds,
+    refetchInterval: 5000,
+  });
+
+  const { data: votes } = useQuery({
+    queryKey: ['votes', voteIds],
+    enabled: !!voteIds?.length,
+    refetchInterval: 5000,
+    queryFn: async () => {
+      const { objects } = await suiClient.getObjects({
+        objectIds: voteIds!,
+        include: { content: true },
+      });
+      return objects
+        .map((object) => (object instanceof Error ? null : parseVote(object.content)))
+        .filter((vote): vote is NonNullable<typeof vote> => vote !== null);
     },
-    { refetchInterval: 5000 },
-  );
-
-  const voteIds: string[] = (events?.data ?? [])
-    .map((e) => (e.parsedJson as any)?.vote_id)
-    .filter(Boolean);
-
-  const { data: objects } = useSuiClientQuery(
-    'multiGetObjects',
-    { ids: voteIds, options: { showContent: true } },
-    { enabled: voteIds.length > 0, refetchInterval: 5000 },
-  );
-
-  const votes = (objects ?? [])
-    .map((o) => parseVote(o.data))
-    .filter((v): v is NonNullable<typeof v> => v !== null);
+  });
 
   return (
     <Card>
@@ -41,7 +76,7 @@ export function VoteList() {
       </Heading>
       {isPending ? (
         <Text color="gray">Loading…</Text>
-      ) : votes.length === 0 ? (
+      ) : !votes?.length ? (
         <Text color="gray">No votes yet. Create the first one above.</Text>
       ) : (
         <Flex direction="column" gap="2">

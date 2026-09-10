@@ -1,6 +1,7 @@
 // Copyright (c), Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { ConnectButton } from '@mysten/dapp-kit-react/ui';
 import { Box, Card, Container, Flex, Heading, Link as RLink, Text } from '@radix-ui/themes';
 import { Link, Route, Routes } from 'react-router-dom';
 import { CreateVote } from './CreateVote';

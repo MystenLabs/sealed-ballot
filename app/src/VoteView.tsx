@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import {
-  useCurrentAccount,
-  useSignAndExecuteTransaction,
-  useSignPersonalMessage,
-  useSuiClient,
-  useSuiClientQuery,
-} from '@mysten/dapp-kit';
+import { useCurrentAccount, useCurrentClient, useDAppKit } from '@mysten/dapp-kit-react';
+import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { fromHex, normalizeSuiAddress } from '@mysten/sui/utils';
@@ -27,39 +22,39 @@ import {
   Text,
 } from '@radix-ui/themes';
 import { CheckCircledIcon, CircleIcon } from '@radix-ui/react-icons';
-import { useNetworkVariable } from './networkConfig';
-import { MODULE } from './constants';
+import { MODULE, PACKAGE_ID } from './constants';
 import { makeSealClient } from './seal';
-import { explorerObjectUrl, parseVote, shorten } from './utils';
+import { explorerObjectUrl, parseVote, shorten, unwrapTransaction } from './utils';
 
 const SESSION_TTL_MIN = 10;
 
 export function VoteView() {
   const { id } = useParams();
   const account = useCurrentAccount();
-  const packageId = useNetworkVariable('packageId');
-  const suiClient = useSuiClient();
+  const packageId = PACKAGE_ID;
+  const suiClient = useCurrentClient();
+  const dAppKit = useDAppKit();
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { mutate: signPersonalMessage } = useSignPersonalMessage();
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: { showEffects: true },
-      }),
+  const { data: vote, refetch } = useQuery({
+    queryKey: ['vote', id],
+    enabled: !!id,
+    refetchInterval: 3000,
+    queryFn: async () => {
+      const { object } = await suiClient.getObject({ objectId: id!, include: { content: true } });
+      return parseVote(object.content);
+    },
   });
 
-  const { data, refetch } = useSuiClientQuery(
-    'getObject',
-    { id: id!, options: { showContent: true } },
-    { enabled: !!id, refetchInterval: 3000 },
-  );
-
-  const vote = parseVote(data?.data);
+  // Sign, execute and wait for a transaction, throwing on an on-chain failure.
+  async function execute(tx: Transaction) {
+    const { effects } = unwrapTransaction(
+      await dAppKit.signAndExecuteTransaction({ transaction: tx }),
+    );
+    await suiClient.waitForTransaction({ digest: effects.transactionDigest });
+  }
 
   if (!vote) {
     return (
@@ -106,19 +101,9 @@ export function VoteView() {
       });
       tx.setGasBudget(100000000);
 
-      signAndExecute(
-        { transaction: tx },
-        {
-          onSuccess: () => {
-            setBusy(null);
-            refetch();
-          },
-          onError: (e) => {
-            setBusy(null);
-            setError(String(e));
-          },
-        },
-      );
+      await execute(tx);
+      setBusy(null);
+      refetch();
     } catch (e) {
       setBusy(null);
       setError(String(e));
@@ -140,85 +125,62 @@ export function VoteView() {
         suiClient,
       });
 
-      signPersonalMessage(
-        { message: sessionKey.getPersonalMessage() },
-        {
-          onSuccess: async ({ signature }) => {
-            try {
-              await sessionKey.setPersonalMessageSignature(signature);
+      const { signature } = await dAppKit.signPersonalMessage({
+        message: sessionKey.getPersonalMessage(),
+      });
+      await sessionKey.setPersonalMessageSignature(signature);
 
-              // Build the seal_approve PTB the key servers evaluate before releasing keys.
-              const approveTx = new Transaction();
-              approveTx.moveCall({
-                target: `${packageId}::${MODULE}::seal_approve`,
-                arguments: [
-                  approveTx.pure.vector('u8', fromHex(innerId)),
-                  approveTx.object(vote!.id),
-                  approveTx.object.clock(),
-                ],
-              });
-              const txBytes = await approveTx.build({ client: suiClient, onlyTransactionKind: true });
+      // Build the seal_approve PTB the key servers evaluate before releasing keys.
+      const approveTx = new Transaction();
+      approveTx.moveCall({
+        target: `${packageId}::${MODULE}::seal_approve`,
+        arguments: [
+          approveTx.pure.vector('u8', fromHex(innerId)),
+          approveTx.object(vote!.id),
+          approveTx.object.clock(),
+        ],
+      });
+      const txBytes = await approveTx.build({ client: suiClient, onlyTransactionKind: true });
 
-              const derivedKeys = await sealClient.getDerivedKeys({
-                id: innerId,
-                txBytes,
-                sessionKey,
-                threshold: vote!.threshold,
-              });
+      const derivedKeys = await sealClient.getDerivedKeys({
+        id: innerId,
+        txBytes,
+        sessionKey,
+        threshold: vote!.threshold,
+      });
 
-              // Order the derived keys to match the vote's key_servers field.
-              const normalized = new Map(
-                Array.from(derivedKeys.entries()).map(([ks, dk]) => [normalizeSuiAddress(ks), dk]),
-              );
-              const orderedServers: string[] = [];
-              const orderedKeys: number[][] = [];
-              for (const ks of vote!.keyServers) {
-                const dk = normalized.get(normalizeSuiAddress(ks));
-                if (dk) {
-                  orderedServers.push(ks);
-                  orderedKeys.push(Array.from(fromHex(dk.toString())));
-                }
-              }
-              if (orderedServers.length < vote!.threshold) {
-                throw new Error('Could not obtain enough derived keys from the key servers.');
-              }
-
-              setBusy('Finalizing on-chain…');
-              const tx = new Transaction();
-              tx.moveCall({
-                target: `${packageId}::${MODULE}::finalize_vote`,
-                arguments: [
-                  tx.object(vote!.id),
-                  tx.pure(bcs.vector(bcs.vector(bcs.u8())).serialize(orderedKeys).toBytes()),
-                  tx.pure.vector('address', orderedServers),
-                ],
-              });
-              tx.setGasBudget(100000000);
-
-              signAndExecute(
-                { transaction: tx },
-                {
-                  onSuccess: () => {
-                    setBusy(null);
-                    refetch();
-                  },
-                  onError: (e) => {
-                    setBusy(null);
-                    setError(String(e));
-                  },
-                },
-              );
-            } catch (e) {
-              setBusy(null);
-              setError(String(e));
-            }
-          },
-          onError: (e) => {
-            setBusy(null);
-            setError(String(e));
-          },
-        },
+      // Order the derived keys to match the vote's key_servers field.
+      const normalized = new Map(
+        Array.from(derivedKeys.entries()).map(([ks, dk]) => [normalizeSuiAddress(ks), dk]),
       );
+      const orderedServers: string[] = [];
+      const orderedKeys: number[][] = [];
+      for (const ks of vote!.keyServers) {
+        const dk = normalized.get(normalizeSuiAddress(ks));
+        if (dk) {
+          orderedServers.push(ks);
+          orderedKeys.push(Array.from(fromHex(dk.toString())));
+        }
+      }
+      if (orderedServers.length < vote!.threshold) {
+        throw new Error('Could not obtain enough derived keys from the key servers.');
+      }
+
+      setBusy('Finalizing on-chain…');
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${packageId}::${MODULE}::finalize_vote`,
+        arguments: [
+          tx.object(vote!.id),
+          tx.pure(bcs.vector(bcs.vector(bcs.u8())).serialize(orderedKeys).toBytes()),
+          tx.pure.vector('address', orderedServers),
+        ],
+      });
+      tx.setGasBudget(100000000);
+
+      await execute(tx);
+      setBusy(null);
+      refetch();
     } catch (e) {
       setBusy(null);
       setError(String(e));
