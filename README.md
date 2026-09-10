@@ -3,6 +3,8 @@
 A demo app for **private, threshold-encrypted voting** on Sui, powered by
 [Seal](https://github.com/MystenLabs/seal).
 
+**▶ Try it: https://seal-voting.vercel.app** (connect a wallet set to Sui Testnet)
+
 - Anyone can create a vote with a **title**, a set of **named options**, a **whitelist** of
   eligible voter addresses, and a **voting duration** (in minutes).
 - Each whitelisted voter submits a single **encrypted** vote (the option they chose). Votes are
@@ -26,6 +28,7 @@ from the Seal repository, adapted into a deployable demo with a small React UI.
 
 ## Deployment
 
+- **Live app:** <https://seal-voting.vercel.app>, deployed from `main` on Vercel.
 - **Move package (Testnet):** `0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8`
 - **Seal package (Testnet):** `0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112` —
   the current published Seal package (see the `seal` dependency in `move/seal_voting/Move.toml`).
