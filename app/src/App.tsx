@@ -24,7 +24,7 @@ function App() {
       <Flex justify="between" align="center" mb="4">
         <Link to="/" style={{ textDecoration: 'none' }}>
           <Heading size="7" style={{ color: 'var(--accent-11)' }}>
-            🗳️ Seal Voting
+            🗳️ Sealed Ballot
           </Heading>
         </Link>
         <ConnectButton />
