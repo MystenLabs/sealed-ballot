@@ -36,6 +36,8 @@ const EAlreadyFinalized: u64 = 3;
 const ENotEnoughKeys: u64 = 4;
 const ENotAVoter: u64 = 5;
 const EInvalidOptions: u64 = 6;
+const EInvalidThreshold: u64 = 7;
+const EMismatchedKeyServers: u64 = 8;
 
 public struct Vote has key {
     id: UID,
@@ -70,19 +72,6 @@ public fun id(v: &Vote): vector<u8> {
     object::id(v).to_bytes()
 }
 
-/// The winning option of a tally. Returns the lowest index in case of a tie.
-public fun winner(result: &vector<u64>): u8 {
-    let (mut max_votes, mut option) = (0u64, 0u8);
-    result.length().do!(|i| {
-        let votes = result[i];
-        if (votes > max_votes) {
-            max_votes = votes;
-            option = i as u8;
-        };
-    });
-    option
-}
-
 /// Create a vote and share it so that the whitelisted voters can cast their votes.
 public fun create_vote(
     package_id: address,
@@ -96,8 +85,8 @@ public fun create_vote(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(threshold <= key_servers.length() as u8);
-    assert!(key_servers.length() == public_keys.length());
+    assert!(threshold <= key_servers.length() as u8, EInvalidThreshold);
+    assert!(key_servers.length() == public_keys.length(), EMismatchedKeyServers);
     assert!(options.length() >= 2, EInvalidOptions);
     let vote = Vote {
         id: object::new(ctx),
@@ -151,7 +140,7 @@ public fun finalize_vote(
     key_servers: vector<address>,
 ) {
     assert!(!vote.is_finalized, EAlreadyFinalized);
-    assert!(key_servers.length() == derived_keys.length());
+    assert!(key_servers.length() == derived_keys.length(), EMismatchedKeyServers);
     assert!(derived_keys.length() as u8 >= vote.threshold, ENotEnoughKeys);
 
     let verified_derived_keys: vector<VerifiedDerivedKey> = verify_derived_keys(
