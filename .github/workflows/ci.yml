@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm build
+
+  # The end-to-end test is deliberately not run here: it needs Testnet gas and the
+  # faucet is rate-limited. Run it by hand with `pnpm test` from `app/`.
+
+  move:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Sui CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=$(gh release list --repo MystenLabs/sui --limit 40 \
+            --json tagName --jq '[.[] | select(.tagName | startswith("testnet-"))][0].tagName')
+          echo "Using $tag"
+          gh release download "$tag" --repo MystenLabs/sui \
+            --pattern 'sui-*-ubuntu-x86_64.tgz' --output sui.tgz --clobber
+          mkdir -p "$RUNNER_TEMP/sui"
+          tar -xzf sui.tgz -C "$RUNNER_TEMP/sui"
+          bin=$(find "$RUNNER_TEMP/sui" -type f -name sui | head -1)
+          chmod +x "$bin"
+          dirname "$bin" >> "$GITHUB_PATH"
+      - run: sui move build --build-env testnet
+        working-directory: move/seal_voting
