@@ -21,14 +21,14 @@ This is built on the [`voting` on-chain-decryption pattern](https://github.com/M
 from the Seal repository, adapted into a deployable demo with a small React UI.
 
 > Deployed on **Sui Testnet**. Seal's verified key servers run on Testnet/Mainnet (not Devnet),
-> so the demo targets Testnet.
+> so the demo targets Testnet. The app reads and writes over **gRPC**: the JSON-RPC API the older
+> Sui SDKs used has been retired on the public fullnodes.
 
 ## Deployment
 
-- **Move package (Testnet):** `0x08307012638003b7df2372d486755df193653875bde5193c13eb8e03663dd952`
-- **Seal package (Testnet):** `0xdcb3015886d0d12430d82d7c3274b4fafdb2c7fa2bcdbfac468c15a11a1d1f5a` —
-  an optimized build of Seal with a faster `decrypt` (see the `seal` dependency in
-  `move/seal_voting/Move.toml`).
+- **Move package (Testnet):** `0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8`
+- **Seal package (Testnet):** `0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112` —
+  the current published Seal package (see the `seal` dependency in `move/seal_voting/Move.toml`).
 - **Key servers:** the two Mysten Labs "Open" mode independent Testnet key servers, with a
   threshold of 2-of-2 (see `app/src/constants.ts`).
 
@@ -36,7 +36,7 @@ from the Seal repository, adapted into a deployable demo with a small React UI.
 
 ```
 move/seal_voting/      Move package (the Vote object + create/cast/finalize/seal_approve)
-app/                   Vite + React frontend (@mysten/dapp-kit + @mysten/seal)
+app/                   Vite + React frontend (@mysten/dapp-kit-react + @mysten/seal, over gRPC)
 app/e2e-test.mjs       Headless end-to-end test of the full encrypt → cast → finalize flow
 ```
 
@@ -75,7 +75,8 @@ The frontend is a static SPA. Import this repo into Vercel and set:
 
 ```bash
 cd move/seal_voting
-sui move build
+sui move build --build-env testnet
+sui client switch --env testnet
 sui client publish --gas-budget 200000000
 ```
 
@@ -88,7 +89,8 @@ Then update `PACKAGE_ID` in `app/src/constants.ts` with the new package id.
 ## Headless test
 
 `app/e2e-test.mjs` runs the entire flow against Testnet with a fresh ephemeral keypair (funded via
-faucet). From `app/`: `node e2e-test.mjs`.
+faucet, which is rate-limited — fund the printed address by hand if the faucet refuses). From
+`app/`: `pnpm test`.
 
 ## License
 

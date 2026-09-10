@@ -4,6 +4,12 @@
 // The seal_voting Move package, published on Sui Testnet.
 export const PACKAGE_ID = '0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8';
 
+// Sui Testnet endpoints. Object reads and transaction execution go over gRPC (the JSON-RPC API on
+// the public fullnodes has been retired); the GraphQL endpoint is only used to look up the
+// `VoteCreated` events that let the UI discover existing votes, which gRPC does not expose.
+export const FULLNODE_URL = 'https://fullnode.testnet.sui.io:443';
+export const GRAPHQL_URL = 'https://graphql.testnet.sui.io/graphql';
+
 // Default voting window (minutes). A vote can be finalized once everyone has voted, or once this
 // many minutes have passed since creation — whichever comes first.
 export const DEFAULT_VOTING_MINUTES = 60;

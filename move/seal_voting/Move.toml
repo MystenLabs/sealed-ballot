@@ -3,4 +3,4 @@ name = "seal_voting"
 edition = "2024"
 
 [dependencies]
-seal = { git = "https://github.com/MystenLabs/seal.git", subdir = "move/seal", rev = "22f694d1121b6c5a8950fb4eb3e1bc3e2ac914be" }
+seal = { git = "https://github.com/MystenLabs/seal.git", subdir = "move/seal", rev = "d0ab560e8dfffe31397728fe284936085a7a7100" }

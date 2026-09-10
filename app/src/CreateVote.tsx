@@ -2,21 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount, useCurrentClient, useDAppKit } from '@mysten/dapp-kit-react';
 import { Transaction } from '@mysten/sui/transactions';
 import { bcs } from '@mysten/sui/bcs';
 import { isValidSuiAddress } from '@mysten/sui/utils';
 import { Button, Card, Flex, Heading, IconButton, Text, TextArea, TextField } from '@radix-ui/themes';
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
-import { useNetworkVariable } from './networkConfig';
-import { DEFAULT_VOTING_MINUTES, KEY_SERVER_IDS, MODULE, THRESHOLD } from './constants';
+import { DEFAULT_VOTING_MINUTES, KEY_SERVER_IDS, MODULE, PACKAGE_ID, THRESHOLD } from './constants';
 import { getKeyServerPublicKeys, makeSealClient } from './seal';
+import { unwrapTransaction } from './utils';
 
 export function CreateVote() {
   const navigate = useNavigate();
   const account = useCurrentAccount();
-  const packageId = useNetworkVariable('packageId');
-  const suiClient = useSuiClient();
+  const packageId = PACKAGE_ID;
+  const suiClient = useCurrentClient();
+  const dAppKit = useDAppKit();
 
   const [title, setTitle] = useState('');
   const [voters, setVoters] = useState(account?.address ?? '');
@@ -24,15 +25,6 @@ export function CreateVote() {
   const [durationMinutes, setDurationMinutes] = useState(String(DEFAULT_VOTING_MINUTES));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const { mutate: signAndExecute } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      await suiClient.executeTransactionBlock({
-        transactionBlock: bytes,
-        signature,
-        options: { showEffects: true, showObjectChanges: true },
-      }),
-  });
 
   const setOption = (i: number, v: string) =>
     setOptions((prev) => prev.map((o, idx) => (idx === i ? v : o)));
@@ -87,26 +79,22 @@ export function CreateVote() {
       });
       tx.setGasBudget(100000000);
 
-      signAndExecute(
-        { transaction: tx },
-        {
-          onSuccess: (result) => {
-            setBusy(false);
-            const created = result.objectChanges?.find(
-              (c: any) => c.type === 'created' && c.objectType?.endsWith('::voting::Vote'),
-            ) as any;
-            if (created?.objectId) {
-              setTitle('');
-              setOptions(['', '']);
-              navigate(`/vote/${created.objectId}`);
-            }
-          },
-          onError: (e) => {
-            setBusy(false);
-            setError(String(e));
-          },
-        },
+      const { effects } = unwrapTransaction(
+        await dAppKit.signAndExecuteTransaction({ transaction: tx }),
       );
+      await suiClient.waitForTransaction({ digest: effects.transactionDigest });
+
+      // The Vote is the only shared object the transaction creates, so that identifies it without
+      // having to fetch and type-check every created object.
+      const created = effects.changedObjects.find(
+        (c) => c.idOperation === 'Created' && c.outputOwner?.$kind === 'Shared',
+      );
+      setBusy(false);
+      if (created) {
+        setTitle('');
+        setOptions(['', '']);
+        navigate(`/vote/${created.objectId}`);
+      }
     } catch (e) {
       setBusy(false);
       setError(String(e));
