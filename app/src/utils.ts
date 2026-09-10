@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { bcs } from '@mysten/sui/bcs';
 import type { SuiClientTypes } from '@mysten/sui/client';
+import { VOTE_TYPE } from './constants';
 
 type ExecutionStatus = SuiClientTypes.ExecutionStatus;
 
@@ -66,15 +67,20 @@ export interface Vote {
   threshold: number;
 }
 
-/** Parse the BCS content of a `Vote` object, as returned by `getObject`/`getObjects`. */
-export function parseVote(content: Uint8Array | null | undefined): Vote | null {
-  if (!content) return null;
-  let raw;
-  try {
-    raw = VoteStruct.parse(content);
-  } catch {
-    return null;
-  }
+/**
+ * Parse an object fetched with `getObject`/`getObjects` as a `Vote`.
+ *
+ * Returns null when the object is not a vote from this package, which is the expected outcome for
+ * an id someone typed or pasted. A type match with content that does not parse is a genuine
+ * inconsistency between this BCS layout and the on-chain struct, so that throws rather than being
+ * reported as a missing vote.
+ */
+export function parseVote(object: {
+  type?: string | null;
+  content?: Uint8Array | null;
+}): Vote | null {
+  if (object.type !== VOTE_TYPE || !object.content) return null;
+  const raw = VoteStruct.parse(object.content);
   return {
     id: raw.id,
     creator: raw.creator,

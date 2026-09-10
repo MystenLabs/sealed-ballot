@@ -6,10 +6,11 @@ import { Transaction } from '@mysten/sui/transactions';
 import { requestSuiFromFaucetV2, getFaucetHost } from '@mysten/sui/faucet';
 import { fromHex, normalizeSuiAddress } from '@mysten/sui/utils';
 import { bcs } from '@mysten/sui/bcs';
-import { SealClient, SessionKey, DemType } from '@mysten/seal';
+import { SessionKey, DemType } from '@mysten/seal';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { parseVote, unwrapTransaction } from './src/utils.ts';
-import { FULLNODE_URL, KEY_SERVER_IDS, PACKAGE_ID, THRESHOLD } from './src/constants.ts';
+import { parseVote, unwrapTransaction } from './src/utils';
+import { FULLNODE_URL, KEY_SERVER_IDS, PACKAGE_ID, THRESHOLD } from './src/constants';
+import { makeSealClient } from './src/seal';
 
 const KEYFILE = '/tmp/seal_voting_ephem.key';
 
@@ -50,11 +51,7 @@ if (bal === 0n) {
 }
 console.log('balance:', bal.toString());
 
-const seal = new SealClient({
-  suiClient: client,
-  serverConfigs: KEY_SERVER_IDS.map((objectId) => ({ objectId, weight: 1 })),
-  verifyKeyServers: false,
-});
+const seal = makeSealClient(client);
 const servers = await seal.getKeyServers();
 const pks = KEY_SERVER_IDS.map((id) => Array.from(servers.get(id).pk));
 
@@ -145,8 +142,11 @@ tx.moveCall({
 await exec(tx);
 
 // 4. read & assert
-const { object } = await client.getObject({ objectId: voteId, include: { content: true } });
-const finalVote = parseVote(object.content);
+const { object } = await client.getObject({
+  objectId: voteId,
+  include: { content: true, type: true },
+});
+const finalVote = parseVote(object);
 const result = finalVote.result ?? [];
 console.log('is_finalized:', finalVote.isFinalized);
 console.log('result tally [Alpha, Beta]:', JSON.stringify(result));
