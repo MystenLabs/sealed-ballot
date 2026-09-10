@@ -40,13 +40,21 @@ export function VoteView() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: vote, refetch } = useQuery({
+  const {
+    data: vote,
+    isPending,
+    error: loadError,
+    refetch,
+  } = useQuery({
     queryKey: ['vote', id],
     enabled: !!id,
     refetchInterval: 3000,
     queryFn: async () => {
-      const { object } = await suiClient.getObject({ objectId: id!, include: { content: true } });
-      return parseVote(object.content);
+      const { object } = await suiClient.getObject({
+        objectId: id!,
+        include: { json: true, type: true },
+      });
+      return parseVote(object);
     },
   });
 
@@ -65,10 +73,24 @@ export function VoteView() {
     await suiClient.waitForTransaction({ digest: effects.transactionDigest });
   }
 
-  if (!vote) {
+  if (isPending) {
     return (
       <Card>
         <Text color="gray">Loading vote…</Text>
+      </Card>
+    );
+  }
+
+  if (loadError || !vote) {
+    return (
+      <Card>
+        <Callout.Root color="red">
+          <Callout.Text>
+            {loadError
+              ? `Could not load ${shorten(id ?? '')}: ${loadError.message}`
+              : `${shorten(id ?? '')} is not a vote from this package.`}
+          </Callout.Text>
+        </Callout.Root>
       </Card>
     );
   }

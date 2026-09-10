@@ -32,14 +32,18 @@ const RECENT_VOTES_QUERY = `
   }
 `;
 
+interface RecentVotesResponse {
+  events?: { nodes?: { contents?: { json?: { vote_id?: unknown } } }[] };
+}
+
 /** The ids of recently created votes, newest first, from the `VoteCreated` events. */
 export async function fetchRecentVoteIds(): Promise<string[]> {
-  const data = await graphqlRequest<any>(RECENT_VOTES_QUERY, {
+  const data = await graphqlRequest<RecentVotesResponse>(RECENT_VOTES_QUERY, {
     type: `${PACKAGE_ID}::${MODULE}::VoteCreated`,
   });
-  return (data?.events?.nodes ?? [])
-    .map((node: any) => node.contents?.json?.vote_id)
-    .filter((id: unknown): id is string => Boolean(id))
+  return (data.events?.nodes ?? [])
+    .map((node) => node.contents?.json?.vote_id)
+    .filter((id): id is string => typeof id === 'string')
     .reverse();
 }
 
@@ -83,18 +87,41 @@ export interface VoteTransaction {
   succeeded: boolean;
 }
 
+interface VoteTransactionsResponse {
+  transactions?: {
+    nodes?: {
+      digest?: unknown;
+      sender?: { address?: unknown };
+      effects?: { status?: unknown; timestamp?: unknown };
+      kind?: { commands?: { nodes?: { function?: { name?: unknown } }[] } };
+    }[];
+  };
+}
+
+/** Read a value only if the indexer returned it as a string. */
+function asString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 /** Every transaction that touched a vote, oldest first. */
 export async function fetchVoteTransactions(voteId: string): Promise<VoteTransaction[]> {
-  const data = await graphqlRequest<any>(VOTE_TRANSACTIONS_QUERY, { vote: voteId });
-  return (data?.transactions?.nodes ?? []).map((node: any) => {
-    const call = (node.kind?.commands?.nodes ?? []).find((c: any) => c.function?.name);
-    const timestamp = node.effects?.timestamp;
-    return {
-      digest: node.digest,
-      sender: node.sender?.address ?? null,
-      function: call?.function?.name ?? null,
-      timestampMs: timestamp ? Date.parse(timestamp) : null,
-      succeeded: node.effects?.status === 'SUCCESS',
-    };
+  const data = await graphqlRequest<VoteTransactionsResponse>(VOTE_TRANSACTIONS_QUERY, {
+    vote: voteId,
+  });
+  return (data.transactions?.nodes ?? []).flatMap((node) => {
+    const digest = asString(node.digest);
+    if (!digest) return [];
+    const call = (node.kind?.commands?.nodes ?? []).find((c) => asString(c.function?.name));
+    const timestamp = asString(node.effects?.timestamp);
+    const timestampMs = timestamp ? Date.parse(timestamp) : NaN;
+    return [
+      {
+        digest,
+        sender: asString(node.sender?.address),
+        function: asString(call?.function?.name),
+        timestampMs: Number.isNaN(timestampMs) ? null : timestampMs,
+        succeeded: node.effects?.status === 'SUCCESS',
+      },
+    ];
   });
 }

@@ -6,13 +6,17 @@ import { KEY_SERVER_IDS } from './constants';
 
 /**
  * Create a SealClient configured to use the demo's key servers (weight 1 each).
- * `verifyKeyServers` is false because we use a fixed, known set of Mysten Open testnet servers.
+ *
+ * `verifyKeyServers` checks that each server really is the one its on-chain object describes. It
+ * costs a round trip per server on startup, which is why it is often turned off, but leaving it on
+ * is the right default: it is what catches a key server object pointing at a URL that is no longer
+ * the server it claims to be.
  */
 export function makeSealClient(suiClient: SealCompatibleClient): SealClient {
   return new SealClient({
     suiClient,
     serverConfigs: KEY_SERVER_IDS.map((objectId) => ({ objectId, weight: 1 })),
-    verifyKeyServers: false,
+    verifyKeyServers: true,
   });
 }
 

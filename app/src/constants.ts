@@ -30,3 +30,7 @@ export const KEY_SERVER_IDS = [
 export const THRESHOLD = 2;
 
 export const MODULE = 'voting';
+
+// The fully-qualified type of the shared Vote object, used to check that an object fetched by id
+// really is a vote from this package before its bytes are parsed as one.
+export const VOTE_TYPE = `${PACKAGE_ID}::${MODULE}::Vote`;
