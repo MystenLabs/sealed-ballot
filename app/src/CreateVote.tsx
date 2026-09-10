@@ -12,6 +12,9 @@ import { DEFAULT_VOTING_MINUTES, KEY_SERVER_IDS, MODULE, PACKAGE_ID, THRESHOLD }
 import { getKeyServerPublicKeys, makeSealClient } from './seal';
 import { unwrapTransaction } from './utils';
 
+// Placeholder options, shown alongside the example title.
+const EXAMPLE_OPTIONS = ['Hold Me, Thrill Me, Kiss Me, Kill Me', 'Kiss from a Rose'];
+
 export function CreateVote() {
   const navigate = useNavigate();
   const account = useCurrentAccount();
@@ -112,7 +115,7 @@ export function CreateVote() {
             Title
           </Text>
           <TextField.Root
-            placeholder="e.g. Where should the next offsite be?"
+            placeholder={`e.g. What's the best song on the "Batman Forever" soundtrack?`}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -142,7 +145,7 @@ export function CreateVote() {
               <Flex key={i} gap="2" align="center">
                 <TextField.Root
                   style={{ flex: 1 }}
-                  placeholder={`Option ${i + 1}`}
+                  placeholder={EXAMPLE_OPTIONS[i] ?? `Option ${i + 1}`}
                   value={opt}
                   onChange={(e) => setOption(i, e.target.value)}
                 />
