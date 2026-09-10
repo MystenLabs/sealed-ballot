@@ -46,6 +46,16 @@ keys to `finalize_vote`, which verifies them and does the decryption and the tal
 - **Move package (Testnet):** `0x697ebf7687482d27f0da83b9733cc1c39773ad48ae97c7a31fb7c9135bfe4251`
 - **Seal package (Testnet):** `0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112`
 
+## Running it locally
+
+```bash
+cd app
+pnpm install
+pnpm dev
+```
+
+`pnpm test` runs the whole flow headlessly against Testnet with a throwaway keypair.
+
 ## License
 
 Apache-2.0
