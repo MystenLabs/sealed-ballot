@@ -83,12 +83,6 @@ public fun winner(result: &vector<u64>): u8 {
     option
 }
 
-#[test_only]
-public fun destroy_for_testing(v: Vote) {
-    let Vote { id, .. } = v;
-    object::delete(id);
-}
-
 /// Create a vote and share it so that the whitelisted voters can cast their votes.
 public fun create_vote(
     package_id: address,
