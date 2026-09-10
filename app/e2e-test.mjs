@@ -144,7 +144,7 @@ await exec(tx);
 // 4. read & assert
 const { object } = await client.getObject({
   objectId: voteId,
-  include: { content: true, type: true },
+  include: { json: true, type: true },
 });
 const finalVote = parseVote(object);
 const result = finalVote.result ?? [];

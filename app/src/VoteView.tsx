@@ -52,7 +52,7 @@ export function VoteView() {
     queryFn: async () => {
       const { object } = await suiClient.getObject({
         objectId: id!,
-        include: { content: true, type: true },
+        include: { json: true, type: true },
       });
       return parseVote(object);
     },

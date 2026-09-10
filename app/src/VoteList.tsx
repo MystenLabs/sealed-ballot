@@ -24,7 +24,7 @@ export function VoteList() {
     queryFn: async () => {
       const { objects } = await suiClient.getObjects({
         objectIds: voteIds!,
-        include: { content: true, type: true },
+        include: { json: true, type: true },
       });
       return objects
         .map((object) => (object instanceof Error ? null : parseVote(object)))
