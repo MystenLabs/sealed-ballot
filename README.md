@@ -43,7 +43,7 @@ two Mysten Labs "Open" mode Testnet key servers with a threshold of 2-of-2, and 
 bound into the ciphertext so nobody else can replay it. Finalizing submits the key servers' derived
 keys to `finalize_vote`, which verifies them and does the decryption and the tally in Move.
 
-- **Move package (Testnet):** `0xee763618c07cede43785b429a841bd3fe2043bdc5d70166ea3171f85fbdf7bf8`
+- **Move package (Testnet):** `0x697ebf7687482d27f0da83b9733cc1c39773ad48ae97c7a31fb7c9135bfe4251`
 - **Seal package (Testnet):** `0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112`
 
 ## License
