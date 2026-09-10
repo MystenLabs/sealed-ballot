@@ -24,7 +24,9 @@ import {
 import { CheckCircledIcon, CircleIcon } from '@radix-ui/react-icons';
 import { MODULE, PACKAGE_ID } from './constants';
 import { makeSealClient } from './seal';
-import { explorerObjectUrl, parseVote, shorten, unwrapTransaction } from './utils';
+import { fetchVoteTransactions } from './graphql';
+import type { VoteTransaction } from './graphql';
+import { explorerObjectUrl, explorerTxUrl, parseVote, shorten, unwrapTransaction } from './utils';
 
 const SESSION_TTL_MIN = 10;
 
@@ -46,6 +48,13 @@ export function VoteView() {
       const { object } = await suiClient.getObject({ objectId: id!, include: { content: true } });
       return parseVote(object.content);
     },
+  });
+
+  const { data: activity } = useQuery({
+    queryKey: ['voteTransactions', id],
+    enabled: !!id,
+    refetchInterval: 5000,
+    queryFn: () => fetchVoteTransactions(id!),
   });
 
   // Sign, execute and wait for a transaction, throwing on an on-chain failure.
@@ -342,6 +351,58 @@ export function VoteView() {
           ))}
         </Flex>
       </Card>
+
+      {/* On-chain history: every transaction that touched this vote. */}
+      <Card>
+        <Heading size="3" mb="2">
+          Transactions
+        </Heading>
+        <Separator size="4" mb="2" />
+        {!activity?.length ? (
+          <Text size="2" color="gray">
+            No transactions found. The public indexer only keeps about a month of history.
+          </Text>
+        ) : (
+          <Flex direction="column" gap="2">
+            {activity.map((tx) => (
+              <Flex key={tx.digest} justify="between" align="center" gap="3">
+                <Flex direction="column" gap="1" style={{ minWidth: 0 }}>
+                  <Flex align="center" gap="2">
+                    <Text size="2">{transactionLabel(tx)}</Text>
+                    {!tx.succeeded && (
+                      <Badge color="red" size="1">
+                        failed
+                      </Badge>
+                    )}
+                  </Flex>
+                  <Text size="1" color="gray">
+                    {tx.sender ? shorten(tx.sender, 6) : 'unknown sender'}
+                    {tx.sender && normalizeSuiAddress(tx.sender) === myAddress ? ' (you)' : ''}
+                    {tx.timestampMs ? ` · ${new Date(tx.timestampMs).toLocaleString()}` : ''}
+                  </Text>
+                </Flex>
+                <RLink href={explorerTxUrl(tx.digest)} target="_blank" size="1">
+                  {shorten(tx.digest, 6)}
+                </RLink>
+              </Flex>
+            ))}
+          </Flex>
+        )}
+      </Card>
     </Flex>
   );
+}
+
+/** A human-readable name for the `voting` function a transaction called. */
+function transactionLabel(tx: VoteTransaction): string {
+  switch (tx.function) {
+    case 'create_vote':
+      return 'Vote created';
+    case 'cast_vote':
+      return 'Encrypted vote cast';
+    case 'finalize_vote':
+      return 'Finalized: votes revealed and tallied';
+    default:
+      return 'Other transaction';
+  }
 }
