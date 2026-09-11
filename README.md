@@ -24,6 +24,9 @@ Private, threshold-encrypted voting on Sui, powered by
 > publishes the decryption keys on-chain, so at that point the individual votes are revealed too,
 > not just the aggregate tally.
 
+> **Not audited.** This is a demo built to show how Seal's on-chain decryption works. It has not
+> been audited or reviewed for security. Use it, and anything derived from it, at your own risk.
+
 ## Trying it
 
 1. Set your Sui wallet to **Testnet** and fund it from the [faucet](https://faucet.sui.io/).
