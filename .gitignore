@@ -5,3 +5,6 @@ dist/
 
 # Move build output
 move/**/build/
+
+# Local Claude Code configuration
+.claude/
