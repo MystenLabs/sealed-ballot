@@ -128,7 +128,11 @@ export function VoteView() {
       const tx = new Transaction();
       tx.moveCall({
         target: `${packageId}::${MODULE}::cast_vote`,
-        arguments: [tx.object(vote!.id), tx.pure.vector('u8', Array.from(encryptedObject))],
+        arguments: [
+          tx.object(vote!.id),
+          tx.pure.vector('u8', Array.from(encryptedObject)),
+          tx.object.clock(),
+        ],
       });
       tx.setGasBudget(100000000);
 
@@ -289,7 +293,7 @@ export function VoteView() {
               voter{vote.voters.length === 1 ? '' : 's'}.
             </Text>
           </Box>
-        ) : isVoter && !iHaveVoted ? (
+        ) : isVoter && !iHaveVoted && !deadlinePassed ? (
           <Box>
             <Heading size="4" mb="3">
               Cast your vote
@@ -321,7 +325,7 @@ export function VoteView() {
               {iHaveVoted
                 ? 'Your encrypted vote has been recorded.'
                 : isVoter
-                  ? ''
+                  ? 'Voting closed before you cast a vote, so yours is not counted.'
                   : 'Your connected wallet is not on this vote’s whitelist.'}
             </Text>
             {!vote.isFinalized && (

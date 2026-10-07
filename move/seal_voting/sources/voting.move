@@ -36,6 +36,7 @@ const ENotAVoter: u64 = 5;
 const EInvalidOptions: u64 = 6;
 const EInvalidThreshold: u64 = 7;
 const EMismatchedKeyServers: u64 = 8;
+const EVotingClosed: u64 = 9;
 
 public struct Vote has key {
     id: UID,
@@ -107,7 +108,14 @@ public fun create_vote(
 
 /// Cast a vote. `encrypted_vote` must encrypt a single u8, the option index, with the sender's
 /// address as aad so that it cannot be copied and cast by another voter.
-public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, ctx: &TxContext) {
+///
+/// Voting closes at the deadline, since from then on the key servers release the keys and anyone
+/// can decrypt the votes cast so far. Accepting votes after that would let a late voter see the
+/// others' votes before casting their own.
+public fun cast_vote(vote: &mut Vote, encrypted_vote: vector<u8>, clock: &Clock, ctx: &TxContext) {
+    assert!(!vote.is_finalized, EAlreadyFinalized);
+    assert!(clock.timestamp_ms() < vote.end_time_ms, EVotingClosed);
+
     let encrypted_vote = parse_encrypted_object(encrypted_vote);
 
     assert!(encrypted_vote.aad().borrow() == ctx.sender().to_bytes(), EInvalidVote);

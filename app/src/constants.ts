@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The seal_voting Move package, published on Sui Testnet.
-export const PACKAGE_ID = '0x697ebf7687482d27f0da83b9733cc1c39773ad48ae97c7a31fb7c9135bfe4251';
+export const PACKAGE_ID = '0x51722d1101278cba0ea3698cbe73a6f5d17900b17658a97551c5066b82accca0';
 
 // Sui Testnet endpoints. Object reads and transaction execution go over gRPC (the JSON-RPC API on
 // the public fullnodes has been retired); the GraphQL endpoint is only used to look up the
