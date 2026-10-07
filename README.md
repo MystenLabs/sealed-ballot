@@ -18,7 +18,7 @@ Private, threshold-encrypted voting on Sui, powered by
   and stored on-chain, so nobody can see how anyone voted while the vote is open.
 - The vote is **finalized** once every voter has voted, or once the deadline passes, whichever comes
   first. Finalizing fetches the Seal decryption keys and submits them, and the votes are decrypted
-  and tallied **on-chain**. Voters who missed the deadline are simply not counted.
+  and tallied **on-chain**. Voting closes at the deadline, so voters who missed it are simply not counted.
 
 > **Privacy model:** this is a *sealed ballot*. Votes are secret only until the reveal. Finalizing
 > publishes the decryption keys on-chain, so at that point the individual votes are revealed too,
@@ -46,7 +46,7 @@ two Mysten Labs "Open" mode Testnet key servers with a threshold of 2-of-2, and 
 bound into the ciphertext so nobody else can replay it. Finalizing submits the key servers' derived
 keys to `finalize_vote`, which verifies them and does the decryption and the tally in Move.
 
-- **Move package (Testnet):** `0x697ebf7687482d27f0da83b9733cc1c39773ad48ae97c7a31fb7c9135bfe4251`
+- **Move package (Testnet):** `0x51722d1101278cba0ea3698cbe73a6f5d17900b17658a97551c5066b82accca0`
 - **Seal package (Testnet):** `0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112`
 
 ## Running it locally

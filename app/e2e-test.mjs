@@ -92,7 +92,11 @@ const { encryptedObject } = await seal.encrypt({
 tx = new Transaction();
 tx.moveCall({
   target: `${PACKAGE_ID}::voting::cast_vote`,
-  arguments: [tx.object(voteId), tx.pure.vector('u8', Array.from(encryptedObject))],
+  arguments: [
+    tx.object(voteId),
+    tx.pure.vector('u8', Array.from(encryptedObject)),
+    tx.object.clock(),
+  ],
 });
 await exec(tx);
 console.log('vote cast (Beta)');
